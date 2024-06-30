@@ -1,47 +1,33 @@
-import os
-import time
-from classifier import load_model, classify_image, transform
+from torchvision import models, transforms
+from PIL import Image
+import torch
 
-image_paths = ["path/to/image1.jpg", "path/to/image2.jpg", ...]  # Add your image paths here
-labels = ["dog", "not-a-dog", ...]  # Corresponding labels
-
-def evaluate_model(architecture):
-    model = load_model(architecture)
-    correct_dog = 0
-    correct_not_dog = 0
-    correct_breed = 0
-    total_dogs = 0
-    total_not_dogs = 0
+def load_model(architecture):
+    if architecture == "resnet":
+        model = models.resnet50(pretrained=True)
+    elif architecture == "alexnet":
+        model = models.alexnet(pretrained=True)
+    elif architecture == "vgg":
+        model = models.vgg16(pretrained=True)
+    else:
+        raise ValueError("Invalid model architecture")
     
-    start_time = time.time()
-    for i, image_path in enumerate(image_paths):
-        label = labels[i]
-        predicted = classify_image(image_path, model, transform)
-        
-        if label == "dog":
-            total_dogs += 1
-            if predicted == 1:  # Assuming '1' represents dog in the classifier's output
-                correct_dog += 1
-                if predicted_breed == expected_breed:  # Check breed accuracy
-                    correct_breed += 1
-        else:
-            total_not_dogs += 1
-            if predicted == 0:  # Assuming '0' represents not-a-dog
-                correct_not_dog += 1
+    model.eval()
+    return model
+
+def classify_image(image_path, model, transform):
+    image = Image.open(image_path)
+    image = transform(image).unsqueeze(0)
     
-    total_time = time.time() - start_time
+    with torch.no_grad():
+        outputs = model(image)
     
-    return {
-        "correct_dog": correct_dog / total_dogs * 100,
-        "correct_not_dog": correct_not_dog / total_not_dogs * 100,
-        "correct_breed": correct_breed / total_dogs * 100,
-        "total_time": total_time,
-    }
+    _, predicted = outputs.max(1)
+    return predicted.item()
 
-results = {}
-for architecture in ["resnet", "alexnet", "vgg"]:
-    results[architecture] = evaluate_model(architecture)
-
-print("Results Table:")
-print(results)
-
+transform = transforms.Compose([
+    transforms.Resize(256),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
