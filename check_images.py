@@ -1,47 +1,59 @@
 import os
 import time
-from classifier import load_model, classify_image, transform
+from classifier import classify_image
 
-image_paths = ["path/to/image1.jpg", "path/to/image2.jpg", ...]  # Add your image paths here
-labels = ["dog", "not-a-dog", ...]  # Corresponding labels
+# Directory containing images for testing
+image_dir = 'images/'
 
-def evaluate_model(architecture):
-    model = load_model(architecture)
-    correct_dog = 0
-    correct_not_dog = 0
-    correct_breed = 0
-    total_dogs = 0
-    total_not_dogs = 0
-    
+# List of image files
+image_files = [f for f in os.listdir(image_dir) if os.path.isfile(os.path.join(image_dir, f))]
+
+# Models to evaluate
+models = ['alexnet', 'vgg', 'resnet']
+
+# Initialize results dictionary
+results = {
+    'alexnet': {'not_a_dog_correct': 0, 'dog_correct': 0, 'breed_correct': 0, 'total_dog_images': 0, 'total_images': 0, 'time_taken': 0},
+    'vgg': {'not_a_dog_correct': 0, 'dog_correct': 0, 'breed_correct': 0, 'total_dog_images': 0, 'total_images': 0, 'time_taken': 0},
+    'resnet': {'not_a_dog_correct': 0, 'dog_correct': 0, 'breed_correct': 0, 'total_dog_images': 0, 'total_images': 0, 'time_taken': 0}
+}
+
+# Function to evaluate a model
+def evaluate_model(model_name):
     start_time = time.time()
-    for i, image_path in enumerate(image_paths):
-        label = labels[i]
-        predicted = classify_image(image_path, model, transform)
+    total_dog_images = 0
+    total_images = len(image_files)
+
+    for image_file in image_files:
+        image_path = os.path.join(image_dir, image_file)
+        label, confidence = classify_image(image_path, model_name)
         
-        if label == "dog":
-            total_dogs += 1
-            if predicted == 1:  # Assuming '1' represents dog in the classifier's output
-                correct_dog += 1
-                if predicted_breed == expected_breed:  # Check breed accuracy
-                    correct_breed += 1
+        if 'dog' in image_file:
+            total_dog_images += 1
+            if 'Dog' in label:
+                results[model_name]['dog_correct'] += 1
+                # Check breed accuracy (simplified)
+                if label.split()[0].lower() in image_file.lower():
+                    results[model_name]['breed_correct'] += 1
         else:
-            total_not_dogs += 1
-            if predicted == 0:  # Assuming '0' represents not-a-dog
-                correct_not_dog += 1
+            if 'Not a Dog' in label:
+                results[model_name]['not_a_dog_correct'] += 1
+
+    results[model_name]['total_dog_images'] = total_dog_images
+    results[model_name]['total_images'] = total_images
+    results[model_name]['time_taken'] = time.time() - start_time
+
+# Evaluate each model
+for model in models:
+    evaluate_model(model)
+
+# Print results in a table format
+print("Results Table")
+print(f"{'CNN Model Architecture:':<25} {'% Not-a-Dog Correct':<20} {'% Dogs Correct':<15} {'% Breeds Correct':<18} {'% Match Labels':<15}")
+for model in models:
+    not_a_dog_accuracy = (results[model]['not_a_dog_correct'] / (results[model]['total_images'] - results[model]['total_dog_images'])) * 100
+    dog_accuracy = (results[model]['dog_correct'] / results[model]['total_images']) * 100
+    breed_accuracy = (results[model]['breed_correct'] / results[model]['total_dog_images']) * 100 if results[model]['total_dog_images'] > 0 else 0
+    match_labels = (results[model]['breed_correct'] / results[model]['total_images']) * 100
     
-    total_time = time.time() - start_time
-    
-    return {
-        "correct_dog": correct_dog / total_dogs * 100,
-        "correct_not_dog": correct_not_dog / total_not_dogs * 100,
-        "correct_breed": correct_breed / total_dogs * 100,
-        "total_time": total_time,
-    }
-
-results = {}
-for architecture in ["resnet", "alexnet", "vgg"]:
-    results[architecture] = evaluate_model(architecture)
-
-print("Results Table:")
-print(results)
-
+    print(f"{model.capitalize():<25} {not_a_dog_accuracy:<20.1f} {dog_accuracy:<15.1f} {breed_accuracy:<18.1f} {match_labels:<15.1f}")
